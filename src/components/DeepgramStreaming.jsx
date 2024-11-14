@@ -128,7 +128,6 @@ const DeepgramStreaming = () => {
       }
     };
   }, []);
-
   return (
     <div className="w-full min-h-screen flex items-center justify-center">
       <div className="w-4/5 md:w-3/5 h-[80vh] bg-gray-800 rounded-xl shadow-2xl backdrop-blur-sm bg-opacity-50 flex flex-col relative mx-auto my-10">
@@ -145,28 +144,36 @@ const DeepgramStreaming = () => {
 
           {/* User Message */}
           {transcription && (
-            <div className="flex justify-end gap-3 items-start">
-              <div className="bg-blue-500 bg-opacity-20 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
-                <p className="text-sm md:text-base">{transcription}</p>
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <img 
+                  src="https://lh3.googleusercontent.com/a/ACg8ocJA-ruzck7zCEcXCyhhkUJjKt6RZ39aFyBP8ye-oPkMiyj88nzl=s288-c-no"
+                  alt="Ankit"
+                  className="w-8 h-8 rounded-full object-cover"
+                />
               </div>
-              <img 
-                src="https://lh3.googleusercontent.com/a/ACg8ocJA-ruzck7zCEcXCyhhkUJjKt6RZ39aFyBP8ye-oPkMiyj88nzl=s288-c-no"
-                alt="Ankit"
-                className="w-12 h-12 rounded-full object-cover"
-              />
+              <div className="flex justify-end">
+                <div className="bg-blue-500 bg-opacity-20 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
+                  <p className="text-sm md:text-base">{transcription}</p>
+                </div>
+              </div>
             </div>
           )}
 
           {/* AI Response */}
           {aiResponse && (
-            <div className="flex justify-start gap-3 items-start">
-              <img 
-                src="https://emilyai-v1.deepgram.com/aura-asteria-en.svg"
-                alt="Groq"
-                className="w-12 h-12 rounded-full object-cover"
-              />
-              <div className="bg-gray-700 bg-opacity-50 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
-                <p className="text-sm md:text-base">{aiResponse}</p>
+            <div className="space-y-2">
+              <div className="flex justify-start">
+                <img 
+                  src="https://emilyai-v1.deepgram.com/aura-asteria-en.svg"
+                  alt="Groq"
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              </div>
+              <div className="flex justify-start">
+                <div className="bg-gray-700 bg-opacity-50 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
+                  <p className="text-sm md:text-base">{aiResponse}</p>
+                </div>
               </div>
             </div>
           )}
@@ -198,3 +205,38 @@ const DeepgramStreaming = () => {
 };
 
 export default DeepgramStreaming;
+
+// const TestTailwind = () => {
+//   return (
+//     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900">
+//       <div className="flex flex-col gap-4">
+//         {/* Test Background */}
+//         <div className="bg-blue-500 hover:bg-blue-700 p-8 rounded-lg shadow-xl">
+//           <h2 className="text-white text-2xl font-bold">Test Background</h2>
+//         </div>
+
+//         {/* Test Border */}
+//         <div className="border-4 border-green-500 p-8 rounded-lg">
+//           <h2 className="text-white text-2xl">Test Border</h2>
+//         </div>
+
+//         {/* Test Shadow and Transform */}
+//         <div className="bg-purple-500 p-8 rounded-lg shadow-2xl hover:scale-110 transition-transform">
+//           <h2 className="text-white text-2xl">Test Shadow & Transform</h2>
+//         </div>
+
+//         {/* Test Gradient */}
+//         <div className="bg-gradient-to-r from-pink-500 to-yellow-500 p-8 rounded-lg">
+//           <h2 className="text-white text-2xl">Test Gradient</h2>
+//         </div>
+
+//         {/* Test Animation */}
+//         <div className="bg-red-500 p-8 rounded-lg animate-pulse">
+//           <h2 className="text-white text-2xl">Test Animation</h2>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default TestTailwind;
