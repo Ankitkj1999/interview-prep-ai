@@ -10,8 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@deepgram/sdk": "^3.9.0",
+    "cross-fetch": "^4.0.0",
+    "dotenv": "^16.4.5",
+    "groq-sdk": "^0.8.0",
+    "lucide-react": "^0.456.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "websocket": "^1.0.35"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
