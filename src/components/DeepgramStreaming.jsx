@@ -5,93 +5,107 @@ import Groq from 'groq-sdk';
 
 const DeepgramStreaming = () => {
   const [isListening, setIsListening] = useState(false);
-  const [transcription, setTranscription] = useState('');
-  const [aiResponse, setAiResponse] = useState('');
+  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
   const deepgramConnection = useRef(null);
   const mediaRecorderRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
-  // Initialize Groq client
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   const groq = new Groq({
     apiKey: import.meta.env.VITE_GROQ_API_KEY,
     dangerouslyAllowBrowser: true
   });
 
+  const addMessage = (role, content) => {
+    setMessages(prev => [...prev, { role, content, timestamp: Date.now() }]);
+  };
+
   const startStreaming = async () => {
     try {
-      // Get microphone stream
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      // Initialize Deepgram
       const deepgram = createClient(import.meta.env.VITE_DEEPGRAM_API_KEY);
       
-      // Create live transcription connection
       const connection = deepgram.listen.live({
         model: 'nova-2',
         language: 'en-US',
         smart_format: true,
+        interim_results: false,
+        punctuate: true,
+        endpointing: true
       });
 
-      // Set up event listeners
       connection.on(LiveTranscriptionEvents.Open, () => {
-        console.log('Connection opened');
-        
-        // Start recording and sending audio
         mediaRecorderRef.current = new MediaRecorder(stream);
         mediaRecorderRef.current.ondataavailable = (event) => {
           if (event.data.size > 0 && connection.getReadyState() === 1) {
             connection.send(event.data);
           }
         };
-        
-        mediaRecorderRef.current.start(250); // Send data every 250ms
+        mediaRecorderRef.current.start(250);
       });
 
-      connection.on(LiveTranscriptionEvents.Close, () => {
-        console.log('Connection closed');
-      });
+      let currentUtterance = '';
+      let silenceTimer = null;
 
       connection.on(LiveTranscriptionEvents.Transcript, async (data) => {
         const transcript = data.channel.alternatives[0].transcript;
+        
         if (transcript && data.is_final) {
-          setTranscription(prev => prev + ' ' + transcript);
+          currentUtterance += ' ' + transcript;
           
-          // If we have a complete sentence (ends with punctuation), send to Groq
-          if (transcript.match(/[.!?]$/)) {
-            try {
-              const completion = await groq.chat.completions.create({
-                messages: [
-                  {
-                    role: "system",
-                    content: "You are a helpful assistant. Keep responses concise and natural."
-                  },
-                  {
-                    role: "user",
-                    content: transcript
-                  }
-                ],
-                model: "llama3-70b-8192",
-                temperature: 0.7,
-                max_tokens: 150,
-                stream: true
-              });
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(async () => {
+            if (currentUtterance.trim()) {
+              addMessage('user', currentUtterance.trim());
+              
+              try {
+                const completion = await groq.chat.completions.create({
+                  messages: [
+                    {
+                      role: "system",
+                      content: "You are a helpful assistant. Keep responses concise and natural."
+                    },
+                    {
+                      role: "user",
+                      content: currentUtterance.trim()
+                    }
+                  ],
+                  model: "llama3-70b-8192",
+                  temperature: 0.7,
+                  max_tokens: 150,
+                  stream: true
+                });
 
-              let fullResponse = '';
-              for await (const chunk of completion) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                fullResponse += content;
-                setAiResponse(fullResponse);
+                let fullResponse = '';
+                for await (const chunk of completion) {
+                  const content = chunk.choices[0]?.delta?.content || '';
+                  fullResponse += content;
+                  setMessages(prev => {
+                    const newMessages = [...prev];
+                    if (newMessages[newMessages.length - 1]?.role === 'assistant') {
+                      newMessages[newMessages.length - 1].content = fullResponse;
+                    } else {
+                      newMessages.push({ role: 'assistant', content: fullResponse, timestamp: Date.now() });
+                    }
+                    return newMessages;
+                  });
+                }
+              } catch (error) {
+                console.error('Groq API error:', error);
               }
-            } catch (error) {
-              console.error('Groq API error:', error);
+              currentUtterance = '';
             }
-          }
+          }, 1000);
         }
-      });
-
-      connection.on(LiveTranscriptionEvents.Error, (error) => {
-        console.error('Deepgram error:', error);
       });
 
       deepgramConnection.current = connection;
@@ -107,16 +121,13 @@ const DeepgramStreaming = () => {
       deepgramConnection.current.finish();
       deepgramConnection.current = null;
     }
-    
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
-    
     setIsListening(false);
   };
 
-  // Cleanup on component unmount
   useEffect(() => {
     return () => {
       if (deepgramConnection.current) {
@@ -128,13 +139,12 @@ const DeepgramStreaming = () => {
       }
     };
   }, []);
+
   return (
     <div className="w-full min-h-screen flex items-center justify-center">
       <div className="w-4/5 md:w-3/5 h-[80vh] bg-gray-800 rounded-xl shadow-2xl backdrop-blur-sm bg-opacity-50 flex flex-col relative mx-auto my-10">
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-          {/* Empty State */}
-          {!transcription && !aiResponse && (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {messages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-400 text-center">
                 Start speaking by clicking the microphone button below
@@ -142,44 +152,34 @@ const DeepgramStreaming = () => {
             </div>
           )}
 
-          {/* User Message */}
-          {transcription && (
-            <div className="space-y-2">
-              <div className="flex justify-end">
+          {messages.map((message, index) => (
+            <div key={message.timestamp} className="space-y-2">
+              <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <img 
-                  src="https://lh3.googleusercontent.com/a/ACg8ocJA-ruzck7zCEcXCyhhkUJjKt6RZ39aFyBP8ye-oPkMiyj88nzl=s288-c-no"
-                  alt="Ankit"
+                  src={message.role === 'user' 
+                    ? "https://lh3.googleusercontent.com/a/ACg8ocJA-ruzck7zCEcXCyhhkUJjKt6RZ39aFyBP8ye-oPkMiyj88nzl=s288-c-no"
+                    : "https://emilyai-v1.deepgram.com/aura-asteria-en.svg"
+                  }
+                  alt={message.role === 'user' ? "User" : "Assistant"}
                   className="w-8 h-8 rounded-full object-cover"
                 />
               </div>
-              <div className="flex justify-end">
-                <div className="bg-blue-500 bg-opacity-20 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
-                  <p className="text-sm md:text-base">{transcription}</p>
+              <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`
+                  ${message.role === 'user' 
+                    ? 'bg-blue-500 bg-opacity-20' 
+                    : 'bg-gray-700 bg-opacity-50'
+                  } 
+                  text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md
+                `}>
+                  <p className="text-sm md:text-base">{message.content}</p>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* AI Response */}
-          {aiResponse && (
-            <div className="space-y-2">
-              <div className="flex justify-start">
-                <img 
-                  src="https://emilyai-v1.deepgram.com/aura-asteria-en.svg"
-                  alt="Groq"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              </div>
-              <div className="flex justify-start">
-                <div className="bg-gray-700 bg-opacity-50 text-white rounded-2xl py-3 px-4 max-w-[80%] shadow-md">
-                  <p className="text-sm md:text-base">{aiResponse}</p>
-                </div>
-              </div>
-            </div>
-          )}
+          ))}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Microphone Button Container */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
           <button
             onClick={isListening ? stopStreaming : startStreaming}
@@ -205,38 +205,3 @@ const DeepgramStreaming = () => {
 };
 
 export default DeepgramStreaming;
-
-// const TestTailwind = () => {
-//   return (
-//     <div className="min-h-screen w-full flex items-center justify-center bg-slate-900">
-//       <div className="flex flex-col gap-4">
-//         {/* Test Background */}
-//         <div className="bg-blue-500 hover:bg-blue-700 p-8 rounded-lg shadow-xl">
-//           <h2 className="text-white text-2xl font-bold">Test Background</h2>
-//         </div>
-
-//         {/* Test Border */}
-//         <div className="border-4 border-green-500 p-8 rounded-lg">
-//           <h2 className="text-white text-2xl">Test Border</h2>
-//         </div>
-
-//         {/* Test Shadow and Transform */}
-//         <div className="bg-purple-500 p-8 rounded-lg shadow-2xl hover:scale-110 transition-transform">
-//           <h2 className="text-white text-2xl">Test Shadow & Transform</h2>
-//         </div>
-
-//         {/* Test Gradient */}
-//         <div className="bg-gradient-to-r from-pink-500 to-yellow-500 p-8 rounded-lg">
-//           <h2 className="text-white text-2xl">Test Gradient</h2>
-//         </div>
-
-//         {/* Test Animation */}
-//         <div className="bg-red-500 p-8 rounded-lg animate-pulse">
-//           <h2 className="text-white text-2xl">Test Animation</h2>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default TestTailwind;
