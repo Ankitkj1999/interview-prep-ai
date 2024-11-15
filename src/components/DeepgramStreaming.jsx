@@ -40,7 +40,8 @@ const DeepgramStreaming = () => {
         smart_format: true,
         interim_results: false,
         punctuate: true,
-        endpointing: true
+        endpointing: true,
+        vad_turnoff: 500
       });
 
       connection.on(LiveTranscriptionEvents.Open, () => {
@@ -104,7 +105,7 @@ const DeepgramStreaming = () => {
               }
               currentUtterance = '';
             }
-          }, 1000);
+          }, 1500);
         }
       });
 
